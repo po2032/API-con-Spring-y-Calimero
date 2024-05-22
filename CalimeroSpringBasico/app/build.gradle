@@ -1,0 +1,257 @@
+plugins {
+  id "com.github.ben-manes.versions" version "0.51.0"
+  id 'java'
+  id 'application'
+  id 'maven-publish'
+  id 'signing'
+  id 'eclipse'
+  id 'org.springframework.boot' version '3.2.5'
+  id 'io.spring.dependency-management' version '1.1.4'
+    id 'org.openjfx.javafxplugin' version '0.1.0'
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+   /*flatDir {
+        dirs './libs'
+
+    }*/
+    maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
+    maven { url 'https://s01.oss.sonatype.org/content/repositories/snapshots' }
+}
+javafx {
+    version = "22.0.1"
+    modules = [ 'javafx.controls' ]
+}
+
+group = 'io.calimero'
+version = '3.0-SNAPSHOT'
+
+def date() {
+    new Date().format('yyyyMMdd')
+}
+
+def buildClassifier = date()
+distZip.archiveClassifier = buildClassifier
+distTar.archiveClassifier = buildClassifier
+
+compileJava.options.encoding = 'UTF-8'
+compileTestJava.options.encoding = 'UTF-8'
+javadoc.options.encoding = 'UTF-8'
+
+
+application {
+   
+    mainClass = 'proyecto_sencillo.App'
+}
+
+// SWT is platform dependent
+def swtGroupId = 'org.eclipse.platform'
+
+
+sourceSets {
+    main {
+		java.srcDirs = [ 'src' ]
+        resources.srcDir 'resources'
+    }
+}
+
+compileJava.options*.compilerArgs = [
+    '-Xlint:all',
+//    '-Werror'
+    "--add-reads", "io.calimero.gui=ALL-UNNAMED" // usb4java-javax
+]
+
+/* 
+problema de la falta de información de nombres de parámetros en Spring MVC.
+Este problema surgió al introducir parámetros en:
+@GetMapping("/infodevice/{individualAddress}")
+	public CompletableFuture<String>  info(@PathVariable String individualAddress){
+*/
+compileJava {
+    options.compilerArgs += ["-parameters"]
+    /*
+    la opción -parameters se agrega a los argumentos del compilador Java (compileJava)
+    para incluir la información del nombre del parámetro en el bytecode generado.
+    */
+}
+
+tasks.named('compileJava') {
+    options.javaModuleVersion = provider { project.version }
+}
+
+configurations {
+    provided
+    compile.extendsFrom provided
+}
+
+configurations.configureEach {
+    resolutionStrategy {
+        dependencySubstitution {
+        }
+    }
+}
+
+dependencies {
+    
+    implementation 'com.google.code.gson:gson:2.8.8'
+
+
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+	testImplementation ("org.springframework.boot:spring-boot-starter-test"){
+		exclude group: 'ch.qos.logback', module: 'logback-classic'
+	 }
+    implementation "io.calimero:calimero-device:${version}"	
+    implementation "io.calimero:calimero-core:${version}"
+    implementation ("io.calimero:calimero-tools:${version}"){
+		 capabilities {
+           requireCapability("io.calimero:calimero-tools-serial")
+        }
+            exclude group: 'org.slf4j', module: 'slf4j-simple'
+        }
+	runtimeOnly("io.calimero:calimero-tools:${version}") {
+        capabilities {
+           requireCapability("io.calimero:calimero-tools-usb")
+        }
+		    exclude group: 'org.slf4j', module: 'slf4j-simple'
+       
+      }
+    runtimeOnly("io.calimero:calimero-tools:${version}") {
+        capabilities {
+           requireCapability("io.calimero:calimero-tools-usb")
+        }
+    }
+ }
+
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    }
+    withSourcesJar()
+}
+
+
+tasks.withType(Jar).configureEach {
+    from("${projectDir}") {
+        include 'LICENSE.txt'
+        into "META-INF"
+    }
+    if (name.equals('sourcesJar')) {
+        from("${projectDir}") {
+            include 'README.md'
+        }
+    }
+}
+
+
+
+applicationDistribution.from(project.getProjectDir()) {
+    include 'LICENSE.txt'
+//    include 'README.md'
+}
+
+distributions {
+    main {
+        contents {
+            exclude configurations.provided.collect { it.getName() }.join(' ')
+        }
+    }
+}
+
+def addReads = [ '--add-reads', 'io.calimero.core=io.calimero.tools', // @LinkEvent
+                 '--add-reads', 'io.calimero.serial.provider.rxtx=ALL-UNNAMED',
+                 '--add-reads', 'io.calimero.usb.provider.javax=ALL-UNNAMED' ]
+
+startScripts {
+    defaultJvmOpts = addReads
+    doLast {
+        // on OS X, SWT needs to run on first thread
+        unixScript.text = unixScript.text.replace('DEFAULT_JVM_OPTS=\'',
+            'MACOS_JVM_OPTS=""\n' +
+            'if [ "`uname`" = Darwin ] ; then\n' +
+            '    MACOS_JVM_OPTS="-XstartOnFirstThread"\n' +
+            'fi\n' +
+            'DEFAULT_JVM_OPTS="${MACOS_JVM_OPTS}"\' ')
+        // add dependency on downloaded swt.jar (adding files('swt.jar') to classpath doesn't work)
+        unixScript.text = unixScript.text.replace('MODULE_PATH=$APP_HOME', 'MODULE_PATH=$APP_HOME/lib/swt.jar:$APP_HOME')
+    }
+}
+
+tasks.withType(JavaExec).configureEach {
+    jvmArgs += addReads
+}
+
+run {
+    //if (os.contains("mac")) {
+    //    jvmArgs '-XstartOnFirstThread'
+   // }
+}
+
+
+
+signing {
+    if (project.hasProperty("signing.keyId")) {
+        sign publishing.publications.mavenJava
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+
+plugins {
+    // Apply the application plugin to add support for building a CLI application in Java.
+    id 'application'
+}
+
+repositories {
+    // Use Maven Central for resolving dependencies.
+    mavenCentral()
+}
+
+dependencies {
+    // Use JUnit Jupiter for testing.
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.9.3'
+
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // This dependency is used by the application.
+    implementation 'com.google.guava:guava:32.1.1-jre'
+}
+
+// Apply a specific Java toolchain to ease working on different environments.
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+application {
+    // Define the main class for the application.
+    mainClass = 'proyecto_sencillo.App'
+}
+
+tasks.named('test') {
+    // Use JUnit Platform for unit tests.
+    useJUnitPlatform()
+}*/
