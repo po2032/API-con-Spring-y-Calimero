@@ -22,6 +22,7 @@ import java.io.Serializable;
 
 public class Light extends KnxDeviceServiceLogic implements Runnable, Serializable {
 
+	private String id = "";
 	private String deviceName = "Light (KNX IP)";
 	private String networkname;
 	private boolean run;
@@ -29,14 +30,25 @@ public class Light extends KnxDeviceServiceLogic implements Runnable, Serializab
 
 	private IndividualAddress deviceAddress;
 
-	private static final GroupAddress dpAddressPushButton = new GroupAddress(1, 0, 3);
+	private GroupAddress dpAddressPushButton;
 
-	public Light(int area, int line, int device, String name, String networkname) {
-		this.deviceName = name;
-		this.deviceAddress = new IndividualAddress(area, line, device);
-		this.networkname = networkname;
-		this.run = false;
-	}
+	public Light(String id, int area, int line, int device, String name, String networkname, GroupAddress dpAddressPushButton) {
+        this.id = id;
+        this.deviceName = name;
+        this.deviceAddress = new IndividualAddress(area, line, device);
+        this.networkname = networkname;
+        this.dpAddressPushButton = dpAddressPushButton;
+        this.run = false;
+    }
+	
+    public String getId() {
+        return this.id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
 
 	public String getDeviceName() {
 		return deviceName;
@@ -64,9 +76,9 @@ public class Light extends KnxDeviceServiceLogic implements Runnable, Serializab
 		this.deviceAddress = deviceAddress;
 	}
 
-	public static GroupAddress getDpaddress() {
-		return dpAddressPushButton;
-	}
+	public GroupAddress getDpaddress() {
+        return dpAddressPushButton;
+    }
 
 	@Override
 	public void run() {
@@ -94,6 +106,7 @@ public class Light extends KnxDeviceServiceLogic implements Runnable, Serializab
 				while (this.run)
 					try {
 						Thread.sleep(1000);
+						//System.out.println("Hilo ejecutando: " + this.deviceName.toString());
 					} catch (InterruptedException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
@@ -143,7 +156,7 @@ public class Light extends KnxDeviceServiceLogic implements Runnable, Serializab
 		if (ofDp.getMainAddress().equals(this.dpAddressPushButton)) {
 			final DPTXlatorBoolean t = new DPTXlatorBoolean(ofDp.getDPT());
 			// establece el estado actual del PushButton
-			t.setValue(state);
+			t.setValue("Device: "+this.deviceName+", id: "+this.id+", Estado: "+state);
 
 			System.out.println(
 					LocalTime.now() + " Respond with \"" + t.getValue() + "\" to read-request for " + ofDp.getName());
