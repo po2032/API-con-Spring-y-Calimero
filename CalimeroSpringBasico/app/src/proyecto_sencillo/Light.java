@@ -20,26 +20,45 @@ import io.calimero.link.KNXNetworkLinkIP;
 import io.calimero.link.medium.KnxIPSettings;
 import java.io.Serializable;
 
-public class Light extends KnxDeviceServiceLogic implements Runnable, Serializable {
+public class Light extends KnxDeviceServiceLogic implements Device, Runnable, Serializable {
 
-	private String id = "";
-	private String deviceName = "Light (KNX IP)";
-	private String networkname;
-	private boolean run;
-	private boolean state;
-
-	private IndividualAddress deviceAddress;
-
-	private GroupAddress dpAddressPushButton;
-
-	public Light(String id, int area, int line, int device, String name, String networkname, GroupAddress dpAddressPushButton) {
+	private String id;
+    private String deviceName;
+    private String networkname;
+    private boolean run;
+    private boolean state;
+    private IndividualAddress deviceAddress;
+    private GroupAddress dpAddressPushButton;
+    private NetworkInterface networkInterface;
+    private InetAddress localEndpoint;
+	
+    public Light(String id, int area, int line, int device, String name, String networkname, GroupAddress dpAddressPushButton) {
         this.id = id;
         this.deviceName = name;
         this.deviceAddress = new IndividualAddress(area, line, device);
         this.networkname = networkname;
         this.dpAddressPushButton = dpAddressPushButton;
         this.run = false;
+        try {
+            this.networkInterface = NetworkInterface.getByInetAddress(InetAddress.getByName(this.networkname));
+            this.localEndpoint = InetAddress.getByName(this.networkname);
+        } catch (UnknownHostException | SocketException e) {
+            e.printStackTrace();
+        }
     }
+
+    public String getNetworkName() {
+        return networkname;
+    }
+
+    public String getNetworkInterfaceName() {
+        return networkInterface.getName();
+    }
+
+    public String getLocalEndpoint() {
+        return localEndpoint.toString();
+    }
+
 	
     public String getId() {
         return this.id;
@@ -76,7 +95,8 @@ public class Light extends KnxDeviceServiceLogic implements Runnable, Serializab
 		this.deviceAddress = deviceAddress;
 	}
 
-	public GroupAddress getDpaddress() {
+	@Override
+    public GroupAddress getDpaddress() {
         return dpAddressPushButton;
     }
 
@@ -100,7 +120,8 @@ public class Light extends KnxDeviceServiceLogic implements Runnable, Serializab
 							new KnxIPSettings(this.getDeviceAddress()))) {
 				device.setDeviceLink(link);
 				System.out.println(
-						device + " is up and running, push-button datapoint address is " + dpAddressPushButton);
+						device + " iniciado push-button datapoint address: " + dpAddressPushButton + 
+						", IP: " + this.networkname);
 
 				// just let the service logic sit idle and wait for messages
 				while (this.run)

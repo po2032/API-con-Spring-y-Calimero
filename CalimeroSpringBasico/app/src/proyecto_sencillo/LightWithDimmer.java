@@ -21,31 +21,48 @@ import io.calimero.link.KNXNetworkLinkIP;
 import io.calimero.link.medium.KnxIPSettings;
 import java.io.Serializable;
 
-public class LightWithDimmer extends KnxDeviceServiceLogic implements Runnable, Serializable {
+public class LightWithDimmer extends KnxDeviceServiceLogic implements Device, Runnable, Serializable {
 
-    private String id = "";
-    private String deviceName = "Light with Dimmer (KNX IP)";
+    private String id;
+    private String deviceName;
     private String networkname;
     private boolean run;
     private boolean state;
     private IndividualAddress deviceAddress;
-    private int dimmer = 0;
-
-    private static final GroupAddress dpAddressLight = new GroupAddress(1, 0, 5);
-    private static final GroupAddress dpAddressDimmer = new GroupAddress(1, 0, 4);
-
-    public LightWithDimmer() {
-    }
+    private GroupAddress dpAddressPushButton;
+    private GroupAddress dpAddressDimmer;
+    private NetworkInterface networkInterface;
+    private InetAddress localEndpoint;
+    private int dimmer;
 
     public LightWithDimmer(String id, String name, int area, int line, int device, String networkname, int dimmer) {
         this.id = id;
         this.deviceName = name;
         this.deviceAddress = new IndividualAddress(area, line, device);
         this.networkname = networkname;
+        this.dpAddressPushButton = new GroupAddress(1, 0, 5); // Example group address for push button
+        this.dpAddressDimmer = new GroupAddress(1, 0, 4); // Example group address for dimmer
         this.run = false;
         this.dimmer = dimmer;
+        try {
+            this.networkInterface = NetworkInterface.getByInetAddress(InetAddress.getByName(this.networkname));
+            this.localEndpoint = InetAddress.getByName(this.networkname);
+        } catch (UnknownHostException | SocketException e) {
+            e.printStackTrace();
+        }
     }
 
+    public String getNetworkName() {
+        return networkname;
+    }
+
+    public String getNetworkInterfaceName() {
+        return networkInterface.getName();
+    }
+
+    public String getLocalEndpoint() {
+        return localEndpoint.toString();
+    }
 
     public String getId() {
         return this.id;
@@ -81,69 +98,67 @@ public class LightWithDimmer extends KnxDeviceServiceLogic implements Runnable, 
         this.deviceAddress = deviceAddress;
     }
 
-    public static GroupAddress getDpaddressDimmer() {
-        return dpAddressDimmer;
+    @Override
+    public GroupAddress getDpaddress() {
+        return dpAddressPushButton;
     }
 
-    public static GroupAddress getDpaddressLight() {
-        return dpAddressLight;
+    public int getDimmer() {
+        return this.dimmer;
+    }
+
+    public void setDimmer(int dimmer) {
+        this.dimmer = dimmer;
+    }
+
+    public GroupAddress getDpaddressDimmer() {
+        return this.dpAddressDimmer;
+    }
+
+    public void setDpAddressDimmer(GroupAddress dpAddress) {
+        this.dpAddressDimmer = dpAddress;
     }
 
     @Override
     public void run() {
         try {
-
-            // Crear el Data Point (DPTXlator) del dispositivo
-            StateDP pushButton = new StateDP(dpAddressLight, this.getDeviceName(), 0,
+            StateDP pushButton = new StateDP(getDpaddress(), this.getDeviceName(), 0,
                     DPTXlatorBoolean.DPT_SWITCH.getID());
             StateDP dimmerButton = new StateDP(dpAddressDimmer, this.getDeviceName(), 0,
                     DPTXlator8BitEnum.DptDimmPushbuttonModel.getID());
 
-            // Añadir el dispositivo
             this.getDatapointModel().add(pushButton);
             this.getDatapointModel().add(dimmerButton);
 
             var device = new BaseKnxDevice(this.getDeviceName(), this);
             var netif = NetworkInterface.getByInetAddress(InetAddress.getByName(this.networkname));
 
-            try (
-
-                    var link = KNXNetworkLinkIP.newRoutingLink(netif, KNXNetworkLinkIP.DefaultMulticast,
-                            new KnxIPSettings(this.getDeviceAddress()))) {
+            try (var link = KNXNetworkLinkIP.newRoutingLink(netif, KNXNetworkLinkIP.DefaultMulticast,
+                    new KnxIPSettings(this.getDeviceAddress()))) {
                 device.setDeviceLink(link);
                 System.out.println(device + " is up and running, dimmer datapoint address is " + dpAddressDimmer);
 
-                // just let the service logic sit idle and wait for messages
-                while (this.run)
+                while (this.run) {
                     try {
                         Thread.sleep(1000);
-                        //System.out.println("Hilo ejecutando: " + this.deviceName.toString());
                     } catch (InterruptedException e) {
-                        // TODO Auto-generated catch block
                         e.printStackTrace();
                     }
+                }
             } catch (final KNXException e) {
                 System.out.println("Running " + this.getDeviceName() + " failed: " + e.getMessage());
                 e.printStackTrace();
-            }
-            // catch (final InterruptedException e) {}
-            finally {
+            } finally {
                 System.out.println(this.getDeviceName() + " has left the building.");
-
             }
         } catch (SocketException | UnknownHostException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'run'");
     }
 
     @Override
     public void updateDatapointValue(final Datapoint ofDp, final DPTXlator update) {
-        // Este método se llama para un servicio de indicación de escritura de
-        // comunicación de proceso KNX:
-        // actualizar el valor de punto de datos según el dispositivo
         if (update instanceof DPTXlator8BitEnum) {
             try {
                 this.dimmer = this.dimmer - ((DPTXlator8BitEnum) update).getValueUnsigned();
@@ -151,40 +166,28 @@ public class LightWithDimmer extends KnxDeviceServiceLogic implements Runnable, 
                     this.dimmer = 0;
                 }
             } catch (KNXFormatException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
             }
         } else if (update instanceof DPTXlatorBoolean) {
             state = ((DPTXlatorBoolean) update).getValueBoolean();
-
         }
         System.out.println(LocalTime.now() + " " + ofDp.getName() + " switched \"" + update.getValue() + "\"");
-
     }
 
     @Override
     public DPTXlator requestDatapointValue(final Datapoint ofDp) throws KNXException {
-        // Este método se llama si recibimos una solicitud de lectura de comunicación de
-        // proceso KNX:
-
-        // var m = ofDp.getMainAddress();
-        if (ofDp.getMainAddress().equals(this.dpAddressLight)) {
+        if (ofDp.getMainAddress().equals(this.dpAddressPushButton)) {
             final DPTXlatorBoolean t = new DPTXlatorBoolean(ofDp.getDPT());
-            // set our current button state, the translator will translate it accordingly
-            t.setValue("Device: "+this.deviceName+", id: "+this.id+", Estado: "+state);
+            t.setValue("Device: " + this.deviceName + ", id: " + this.id + ", Estado: " + state);
 
-            System.out.println(
-                    LocalTime.now() + " Respond with \"" + t.getValue() + "\" to read-request for " + ofDp.getName());
+            System.out.println(LocalTime.now() + " Respond with \"" + t.getValue() + "\" to read-request for "
+                    + ofDp.getName());
             return t;
-
         } else {
-
             final DPTXlator8BitEnum t = new DPTXlator8BitEnum(ofDp.getDPT());
-            // set our current button state, the translator will translate it accordingly
-            // t.setValue(String.valueOf(this.dimmer));
-            t.setValue("Device: "+this.deviceName+", id: "+this.id+", Estado: "+this.dimmer);
-            System.out.println(
-                    LocalTime.now() + " Respond with \"" + t.getValue() + "\" to read-request for " + ofDp.getName());
+            t.setValue("Device: " + this.deviceName + ", id: " + this.id + ", Estado: " + this.dimmer);
+            System.out.println(LocalTime.now() + " Respond with \"" + t.getValue() + "\" to read-request for "
+                    + ofDp.getName());
             return t;
         }
     }
