@@ -37,21 +37,24 @@ public class NetworkKNX {
     }
 
     private void initializeDevices() {
-        Light l2 = new Light("l2", 1, 1, 60, "Light 2", "192.168.1.60", new GroupAddress(1, 0, 6));
-        Light l3 = new Light("l3", 1, 1, 127, "Light 3", "192.168.1.127", new GroupAddress(1, 0, 3));
+        Light l1 = new Light("l1", 1, 1, 51, "Light 1", "192.168.1.51", new GroupAddress(1, 0, 6));
+        Light l2 = new Light("l2", 1, 1, 127, "Light 2", "192.168.1.127", new GroupAddress(1, 0, 6));
+        Light l3 = new Light("l3", 1, 1, 62, "Light 3", "192.168.1.62", new GroupAddress(1, 0, 3));
 
-        LightWithDimmer d1 = new LightWithDimmer("d1", "Light with Dimmer 1", 1, 1, 61, "192.168.1.61", 100);
-        //LightWithDimmer d2 = new LightWithDimmer("d2", "Light with Dimmer 2", 1, 1, 62, "192.168.1.62", 50);
+        LightWithDimmer d1 = new LightWithDimmer("d1", "Light with Dimmer 1", 1, 1, 60, "192.168.1.60", 100);
+        LightWithDimmer d2 = new LightWithDimmer("d2", "Light with Dimmer 2", 1, 1, 61, "192.168.1.61", 50);
 
+        l1.start();
         l2.start();
         l3.start();
         d1.start();
-        //d2.start();
+        d2.start();
 
+        devices.add(l1);
         devices.add(l2);
         devices.add(l3);
         devices.add(d1);
-        //devices.add(d2);
+        devices.add(d2);
     }
 
     @GetMapping("/search")
@@ -287,7 +290,8 @@ public class NetworkKNX {
 
         if (device instanceof LightWithDimmer) {
             try {
-                String args2[] = { "read", ((LightWithDimmer) device).getDpaddressDimmer().toString(), "dimmer", "224.0.23.12", "--json" };
+                String args2[] = { "read", ((LightWithDimmer) device).getDpaddressDimmer().toString(), "dimmer",
+                        "224.0.23.12", "--json" };
 
                 final ProcComm d = new ProcComm(args2) {
                     @Override
@@ -315,6 +319,44 @@ public class NetworkKNX {
         } else {
             res.complete("Dimmer device not found");
         }
+        return res;
+    }
+
+    /*
+     * DIMMER STATE ANTERIOR
+     */
+
+    @GetMapping("/dimmer")
+    @Async
+    public CompletableFuture<String> getDimmerSate() {
+        CompletableFuture<String> res = new CompletableFuture<>();
+        try {
+            // no funciona con ningún grupo!!
+            String args2[] = { "read", "1/0/3", "dimmer", "224.0.23.12", "--json" };
+            final String sep = "\n";
+            final ProcComm d = new ProcComm(args2) {
+
+                // lectura
+                @Override
+                protected void onReadResponse(Datapoint dp, String value) {
+                    // TODO Auto-generated method stub
+                    final StringBuilder buf = new StringBuilder();
+                    // final SearchResponse r = result.response();
+                    buf.append(value);
+
+                    super.onReadResponse(dp, value);
+                    res.complete(buf.toString());
+                }
+
+            };
+            // final ShutdownHandler sh = new ShutdownHandler().register();
+            d.run();
+
+            // sh.unregister();
+        } catch (final Throwable t) {
+            // out.log(ERROR, "parsing options", t);
+        }
+        res.complete("fdsfdsfdsfdsfds");
         return res;
     }
 
