@@ -158,7 +158,7 @@ public class Light extends KnxDeviceServiceLogic implements Device, Runnable, Se
 		// comunicación de proceso KNX:
 		// actualizar el valor de punto de datos según el dispositivo
 		if (update instanceof DPTXlator8BitEnum) {
-			// Valores de otros dispositivos (ejemplo Dimmer)
+			// Valores de otros dispositivos (ejemplo dimmer)
 		} else if (update instanceof DPTXlatorBoolean) {
 			state = ((DPTXlatorBoolean) update).getValueBoolean();
 		}
@@ -177,7 +177,7 @@ public class Light extends KnxDeviceServiceLogic implements Device, Runnable, Se
 		if (ofDp.getMainAddress().equals(this.dpAddressPushButton)) {
 			final DPTXlatorBoolean t = new DPTXlatorBoolean(ofDp.getDPT());
 			// establece el estado actual del PushButton
-			t.setValue("Device: "+this.deviceName+", id: "+this.id+", Estado: "+state);
+			t.setValue(state);
 
 			System.out.println(
 					LocalTime.now() + " Respond with \"" + t.getValue() + "\" to read-request for " + ofDp.getName());

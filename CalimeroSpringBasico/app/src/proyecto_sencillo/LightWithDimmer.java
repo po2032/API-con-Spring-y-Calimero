@@ -40,8 +40,8 @@ public class LightWithDimmer extends KnxDeviceServiceLogic implements Device, Ru
         this.deviceName = name;
         this.deviceAddress = new IndividualAddress(area, line, device);
         this.networkname = networkname;
-        this.dpAddressPushButton = new GroupAddress(1, 0, 5); // Example group address for push button
-        this.dpAddressDimmer = new GroupAddress(1, 0, 4); // Example group address for dimmer
+        this.dpAddressPushButton = new GroupAddress(1, 0, 5); // Ejemplo Group Address para Push Button
+        this.dpAddressDimmer = new GroupAddress(1, 0, 4); // Ejemplo Group Address para Dimmer
         this.run = false;
         this.dimmer = dimmer;
         try {
@@ -178,14 +178,14 @@ public class LightWithDimmer extends KnxDeviceServiceLogic implements Device, Ru
     public DPTXlator requestDatapointValue(final Datapoint ofDp) throws KNXException {
         if (ofDp.getMainAddress().equals(this.dpAddressPushButton)) {
             final DPTXlatorBoolean t = new DPTXlatorBoolean(ofDp.getDPT());
-            t.setValue("Device: " + this.deviceName + ", id: " + this.id + ", Estado: " + state);
+            t.setValue(state);
 
             System.out.println(LocalTime.now() + " Respond with \"" + t.getValue() + "\" to read-request for "
                     + ofDp.getName());
             return t;
         } else {
             final DPTXlator8BitEnum t = new DPTXlator8BitEnum(ofDp.getDPT());
-            t.setValue("Device: " + this.deviceName + ", id: " + this.id + ", Estado: " + this.dimmer);
+            t.setValue(this.dimmer);
             System.out.println(LocalTime.now() + " Respond with \"" + t.getValue() + "\" to read-request for "
                     + ofDp.getName());
             return t;
